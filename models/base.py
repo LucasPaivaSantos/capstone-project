@@ -11,7 +11,15 @@ def register_model(name):
 
 class BaseModel(ABC):
     """Interface for concrete classes."""
-    seed: int
+    
+    def __init__(self, seed):
+        """
+        Initialize the model with a seed.
+        
+        Args:
+            seed (int): Random seed for reproducibility
+        """
+        self.seed = seed
     
     @abstractmethod
     def fit(self, X, y):

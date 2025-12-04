@@ -11,6 +11,16 @@ def register_strategy(name):
 
 class BaseStrategy(ABC):
     """Interface for concrete classes."""
+
+    def __init__(self, seed):
+        """
+        Initialize the strategy with a seed.
+        
+        Args:
+            seed (int): Random seed for reproducibility
+        """
+        self.seed = seed
+
     @abstractmethod
     def evaluate(self, model, X, y, **kwargs):
         """

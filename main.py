@@ -35,10 +35,12 @@ def main():
     # manage CLI arguments
     parser = argparse.ArgumentParser(description="Acid Geopolymer Concrete Optimizer")
     
+
     parser.add_argument(
     "--csv_path",
     default="data/best.csv",
     help="Path to the CSV file containing the dataset (default: data/best.csv)")
+
     parser.add_argument(
     "--model", "-m",
     required=True, 
@@ -49,11 +51,18 @@ def main():
     type=int,
     default=None,
     help="Seed for ML model (if not provided, a random seed will be generated)")
+
     parser.add_argument(
     "--strategy", "-s",
     required=True, 
     choices=STRATEGY_REGISTRY.keys(),
     help="Validation Strategy")
+    parser.add_argument(
+    "--strategy_seed",
+    type=int,
+    default=None,
+    help="Seed for validation strategy (if not provided, a random seed will be generated)")
+
 
     args = parser.parse_args()
 
@@ -62,17 +71,20 @@ def main():
         print("Loading Data")
         X, y = load_and_validate_csv(args.csv_path)
 
-        # generate or use provided model_seed
+        # generate or use provided seeds
         model_seed = args.model_seed if args.model_seed is not None else np.random.randint(0, 100)
+        strategy_seed = args.strategy_seed if args.strategy_seed is not None else np.random.randint(0, 100)
+
 
         print(f"\nInitializing Model: {args.model} with seed {model_seed}")
         model_cls = MODEL_REGISTRY[args.model]
         model_instance = model_cls(seed=model_seed)
 
-        print(f"\nExecuting Strategy: {args.strategy}")
+        print(f"\nExecuting Strategy: {args.strategy} with seed {strategy_seed}")
         strategy_cls = STRATEGY_REGISTRY[args.strategy]
-        strategy_instance = strategy_cls()
+        strategy_instance = strategy_cls(seed=strategy_seed)
         
+
         # print model evaluation results
         model_evaluation = strategy_instance.evaluate(model_instance, X, y)
         print("\nEvaluation Metrics:")
@@ -86,6 +98,7 @@ def main():
         args.model,
         model_seed,
         args.strategy,
+        strategy_seed,
         model_evaluation.items()
         )
 
