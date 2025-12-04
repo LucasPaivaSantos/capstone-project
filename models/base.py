@@ -11,6 +11,7 @@ def register_model(name):
 
 class BaseModel(ABC):
     """Interface for concrete classes."""
+    seed: int
     
     @abstractmethod
     def fit(self, X, y):

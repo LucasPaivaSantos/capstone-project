@@ -1,12 +1,13 @@
 import argparse
 import importlib
 import os
+import numpy as np
 import pkgutil
 import sys
 import traceback
 
 from utils.data_loader import load_and_validate_csv
-
+from utils.experiment_logger import save_experiment_info
 from models.base import MODEL_REGISTRY
 
 def load_modules(package_name):
@@ -39,6 +40,11 @@ def main():
     required=True, 
     choices=MODEL_REGISTRY.keys(),
     help="Machine Learning Model to use")
+    parser.add_argument(
+    "--seed",
+    type=int,
+    default=None,
+    help="Random seed for reproducibility (if not provided, a random seed will be generated)")
 
     args = parser.parse_args()
 
@@ -47,9 +53,15 @@ def main():
         print("Loading Data")
         X, y = load_and_validate_csv(args.csv_path)
 
-        print(f"\nInitializing Model: {args.model}")
+        # generate or use provided seed
+        seed = args.seed if args.seed is not None else np.random.randint(0, 100)
+
+        print(f"\nInitializing Model: {args.model} with seed {seed}")
         model_cls = MODEL_REGISTRY[args.model]
-        model_instance = model_cls()
+        model_instance = model_cls(seed=seed)        
+        
+        # save experiment information
+        save_experiment_info(args.csv_path, args.model, seed)
 
     except Exception as e:
         # for erros I didn't anticipate
