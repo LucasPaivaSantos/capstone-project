@@ -1,7 +1,7 @@
 from datetime import datetime
 import os
 
-def save_experiment_info(csv_path, model_name, model_seed, strategy_name, strategy_seed, model_evaluation):
+def save_experiment_info(csv_path, model_name, model_seed, strategy_name, strategy_seed, test_size, model_evaluation):
     """
     Saves experiment information to a timestamped directory.
     
@@ -11,6 +11,7 @@ def save_experiment_info(csv_path, model_name, model_seed, strategy_name, strate
         model_seed (int): Seed used for the model
         strategy_name (str): Name of the validation strategy
         strategy_seed (int): Seed used for the validation strategy
+        test_size (float): Test size used in 'train-split' strategy
         model_evaluation (iterable): Evaluation metrics of the model
     
     Returns:
@@ -31,6 +32,8 @@ def save_experiment_info(csv_path, model_name, model_seed, strategy_name, strate
         f.write(f"CSV Path: {csv_path}\n")
         f.write(f"Model: {model_name} with seed: {model_seed}\n")
         f.write(f"Strategy: {strategy_name} with seed: {strategy_seed}\n")
+        if strategy_name == 'train-split':
+            f.write(f"Test Size: {test_size}\n")
         f.write("Model Evaluation:\n")
         for metric, value in model_evaluation:
             f.write(f" - {metric}: {value}\n")

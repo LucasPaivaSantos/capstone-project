@@ -26,45 +26,75 @@ def load_modules(package_name):
         if module_name != 'base': # skip base module
             importlib.import_module(f'{package_name}.{module_name}')
 
+def handle_cli_args():
+    """
+    Handles all CLI argument parsing and validation logic.
+    Returns the parsed arguments object.
+    """
+
+    parser = argparse.ArgumentParser(description="Acid Geopolymer Concrete Optimizer")
+    
+    parser.add_argument(
+        "--csv_path",
+        default="data/best.csv",
+        help="Path to the CSV file containing the dataset (default: data/best.csv)"
+    )
+
+    parser.add_argument(
+        "--model", "-m",
+        required=True, 
+        choices=MODEL_REGISTRY.keys(),
+        help="Machine Learning Model to use"
+    )
+    parser.add_argument(
+        "--model_seed",
+        type=int,
+        default=None,
+        help="Seed for ML model (if not provided, a random seed will be generated)"
+    )
+
+    parser.add_argument(
+        "--strategy", "-s",
+        required=True, 
+        choices=STRATEGY_REGISTRY.keys(),
+        help="Validation Strategy"
+    )
+    parser.add_argument(
+        "--strategy_seed",
+        type=int,
+        default=None,
+        help="Seed for validation strategy (if not provided, a random seed will be generated)"
+    )
+
+    parser.add_argument(
+        "--test_size",
+        type=float,
+        default=None,
+        help="Test size for train-test split (e.g., 0.2). Only valid for 'train-split' strategy."
+    )
+
+    args = parser.parse_args()
+    
+
+    # if test_size is provided, strategy must be 'train-split'
+    if args.test_size is not None and args.strategy != 'train-split':
+        parser.error(f"The argument '--test_size' is not allowed with strategy '{args.strategy}'. It is only valid for 'train-split'.")
+
+    # set default to 0.2 if strategy is 'train-split' and test_size not provided
+    if args.strategy == 'train-split' and args.test_size is None:
+        args.test_size = 0.2
+        print("Note: 'train-split' selected without explicit test_size. Defaulting to 0.2")
+
+    return args
+
 def main():
     # load all modules
     load_modules('models')
     load_modules('strategies')
 
-
-    # manage CLI arguments
-    parser = argparse.ArgumentParser(description="Acid Geopolymer Concrete Optimizer")
+    # get arguments
+    args = handle_cli_args()
     
-
-    parser.add_argument(
-    "--csv_path",
-    default="data/best.csv",
-    help="Path to the CSV file containing the dataset (default: data/best.csv)")
-
-    parser.add_argument(
-    "--model", "-m",
-    required=True, 
-    choices=MODEL_REGISTRY.keys(),
-    help="Machine Learning Model to use")
-    parser.add_argument(
-    "--model_seed",
-    type=int,
-    default=None,
-    help="Seed for ML model (if not provided, a random seed will be generated)")
-
-    parser.add_argument(
-    "--strategy", "-s",
-    required=True, 
-    choices=STRATEGY_REGISTRY.keys(),
-    help="Validation Strategy")
-    parser.add_argument(
-    "--strategy_seed",
-    type=int,
-    default=None,
-    help="Seed for validation strategy (if not provided, a random seed will be generated)")
-
-
-    args = parser.parse_args()
 
     # main flow
     try:
@@ -83,10 +113,17 @@ def main():
         print(f"\nExecuting Strategy: {args.strategy} with seed {strategy_seed}")
         strategy_cls = STRATEGY_REGISTRY[args.strategy]
         strategy_instance = strategy_cls(seed=strategy_seed)
-        
 
+        # prepare evaluation kwargs based on strategy
+        eval_kwargs = {}
+        if args.strategy == 'train-split':
+            eval_kwargs['test_size'] = args.test_size
+            print(f"Configuration: Test Size = {args.test_size}")
+
+        # run evaluation
+        model_evaluation = strategy_instance.evaluate(model_instance, X, y, **eval_kwargs)
+        
         # print model evaluation results
-        model_evaluation = strategy_instance.evaluate(model_instance, X, y)
         print("\nEvaluation Metrics:")
         for metric, value in model_evaluation.items():
             print(f" - {metric}: {value}")
@@ -99,6 +136,7 @@ def main():
         model_seed,
         args.strategy,
         strategy_seed,
+        args.test_size,
         model_evaluation.items()
         )
 
