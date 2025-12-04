@@ -1,14 +1,16 @@
 from datetime import datetime
 import os
 
-def save_experiment_info(csv_path, model_name, seed):
+def save_experiment_info(csv_path, model_name, model_seed, strategy_name, model_evaluation):
     """
     Saves experiment information to a timestamped directory.
     
     Args:
         csv_path (str): Path to the CSV file used
         model_name (str): Name of the model
-        seed (int): Random seed used for the model
+        model_seed (int): Seed used for the model
+        strategy_name (str): Name of the validation strategy
+        model_evaluation (iterable): Evaluation metrics of the model
     
     Returns:
         str: Path to the experiment directory
@@ -26,7 +28,11 @@ def save_experiment_info(csv_path, model_name, seed):
     experiment_file = os.path.join(experiment_dir, "experiment.txt")
     with open(experiment_file, 'w') as f:
         f.write(f"CSV Path: {csv_path}\n")
-        f.write(f"Model: {model_name} with seed: {seed}\n")
+        f.write(f"Model: {model_name} with seed: {model_seed}\n")
+        f.write(f"Strategy: {strategy_name}\n")
+        f.write("Model Evaluation:\n")
+        for metric, value in model_evaluation:
+            f.write(f" - {metric}: {value}\n")
     
     print(f"\nExperiment info saved to: {experiment_file}")
     return experiment_dir
