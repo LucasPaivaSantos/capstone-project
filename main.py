@@ -105,8 +105,10 @@ def main():
         model_seed = args.model_seed if args.model_seed is not None else np.random.randint(0, 100)
         strategy_seed = args.strategy_seed if args.strategy_seed is not None else np.random.randint(0, 100)
 
-
-        print(f"\nInitializing Model: {args.model} with seed {model_seed}")
+        if args.model == 'svr':
+            print(f"\nInitializing Model: {args.model}")
+        else:
+            print(f"\nInitializing Model: {args.model} with seed {model_seed}")
         model_cls = MODEL_REGISTRY[args.model]
         model_instance = model_cls(seed=model_seed)
 

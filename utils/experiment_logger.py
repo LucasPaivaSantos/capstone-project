@@ -30,7 +30,10 @@ def save_experiment_info(csv_path, model_name, model_seed, strategy_name, strate
     experiment_file = os.path.join(experiment_dir, "experiment.txt")
     with open(experiment_file, 'w') as f:
         f.write(f"CSV Path: {csv_path}\n")
-        f.write(f"Model: {model_name} with seed: {model_seed}\n")
+        if model_name == 'svr':
+            f.write(f"Model: {model_name}\n")
+        else:
+            f.write(f"Model: {model_name} with seed: {model_seed}\n")
         f.write(f"Strategy: {strategy_name} with seed: {strategy_seed}\n")
         if strategy_name == 'train-split':
             f.write(f"Test Size: {test_size}\n")
