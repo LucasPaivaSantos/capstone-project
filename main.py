@@ -70,7 +70,14 @@ def handle_cli_args():
         "--test_size",
         type=float,
         default=None,
-        help="Test size for train-test split (e.g., 0.2). Only valid for 'train-split' strategy."
+        help="Test size for train-test split."
+    )
+
+    parser.add_argument(
+        "--n_splits",
+        type=int,
+        default=None,
+        help="Number of folds for K-Fold cross-validation."
     )
 
     args = parser.parse_args()
@@ -80,10 +87,18 @@ def handle_cli_args():
     if args.test_size is not None and args.strategy != 'train-split':
         parser.error(f"The argument '--test_size' is not allowed with strategy '{args.strategy}'. It is only valid for 'train-split'.")
 
-    # set default to 0.2 if strategy is 'train-split' and test_size not provided
+    # if n_splits is provided, strategy must be 'k-fold'
+    if args.n_splits is not None and args.strategy != 'k-fold':
+        parser.error(f"The argument '--n_splits' is not allowed with strategy '{args.strategy}'. It is only valid for 'k-fold'.")
+
+    # set defaults based on strategy
     if args.strategy == 'train-split' and args.test_size is None:
         args.test_size = 0.2
         print("Note: 'train-split' selected without explicit test_size. Defaulting to 0.2")
+
+    if args.strategy == 'k-fold' and args.n_splits is None:
+        args.n_splits = 5
+        print("Note: 'k-fold' selected without explicit n_splits. Defaulting to 5")
 
     return args
 
@@ -121,6 +136,9 @@ def main():
         if args.strategy == 'train-split':
             eval_kwargs['test_size'] = args.test_size
             print(f"Configuration: Test Size = {args.test_size}")
+        elif args.strategy == 'k-fold':
+            eval_kwargs['n_splits'] = args.n_splits
+            print(f"Configuration: Number of Folds = {args.n_splits}")
 
         # run evaluation
         model_evaluation = strategy_instance.evaluate(model_instance, X, y, **eval_kwargs)
@@ -133,13 +151,13 @@ def main():
 
         # save experiment information
         save_experiment_info(
-        args.csv_path,
-        args.model,
-        model_seed,
-        args.strategy,
-        strategy_seed,
-        args.test_size,
-        model_evaluation.items()
+            args.csv_path,
+            args.model,
+            model_seed,
+            args.strategy,
+            strategy_seed,
+            args.test_size if args.strategy == 'train-split' else args.n_splits if args.strategy == 'k-fold' else None,
+            model_evaluation.items()
         )
 
     except Exception as e:

@@ -5,7 +5,7 @@ from .base import BaseModel, register_model
 class XGBoostModel(BaseModel):
     def __init__(self, seed):
         super().__init__(seed)
-        print(f"XGBoost initialized with seed: {self.seed}")
+        print(f"XGBoost initialized with seed: {self.seed}") # seed dont seemed to be used
         self.model = xgb.XGBRegressor(
             objective='reg:squarederror', 
             random_state=self.seed

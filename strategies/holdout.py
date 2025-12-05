@@ -13,7 +13,7 @@ class TrainTestSplitStrategy(BaseStrategy):
         print(f"Running Train-Test Split (Size: {test_size})")
         
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=float(test_size), random_state=self.seed
+            X, y, test_size=test_size, random_state=self.seed
         )
         
         model.fit(X_train, y_train)
