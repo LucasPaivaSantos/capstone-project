@@ -21,7 +21,7 @@ class LeaveOneOutStrategy(BaseStrategy):
         iteration = 1
         for train_index, test_index in loo.split(X):
             # if iteration % 10 == 0 or iteration == 1:
-            print(f"  Processing iteration {iteration}/{n_samples}...")
+            print(f"  Processing iteration {iteration}/{n_samples}")
             
             X_train, X_test = X.iloc[train_index], X.iloc[test_index]
             y_train, y_test = y.iloc[train_index], y.iloc[test_index]

@@ -20,7 +20,7 @@ class KFoldStrategy(BaseStrategy):
         
         fold_num = 1
         for train_index, test_index in kf.split(X):
-            print(f"  Processing fold {fold_num}/{n_splits}...")
+            print(f"  Processing fold {fold_num}/{n_splits}")
             
             X_train, X_test = X.iloc[train_index], X.iloc[test_index]
             y_train, y_test = y.iloc[train_index], y.iloc[test_index]

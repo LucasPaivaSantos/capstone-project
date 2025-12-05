@@ -1,7 +1,11 @@
 from datetime import datetime
 import os
+# Import the new plotter module
+from .visualization import plot_optimization_history
 
-def save_experiment_info(csv_path, model_name, model_seed, strategy_name, strategy_seed, test_size, model_evaluation):
+def save_experiment_info(csv_path, model_name, model_seed, strategy_name, 
+                        strategy_seed, test_size, model_evaluation, 
+                        optimization_results=None):
     """
     Saves experiment information to a timestamped directory.
     
@@ -35,11 +39,27 @@ def save_experiment_info(csv_path, model_name, model_seed, strategy_name, strate
         else:
             f.write(f"Model: {model_name} with seed: {model_seed}\n")
         f.write(f"Strategy: {strategy_name} with seed: {strategy_seed}\n")
+        
         if strategy_name == 'train-split':
             f.write(f"Test Size: {test_size}\n")
-        f.write("Model Evaluation:\n")
+            
+        f.write("\nModel Evaluation:\n")
         for metric, value in model_evaluation:
             f.write(f" - {metric}: {value}\n")
+            
+        if optimization_results:
+            # unpack results
+            best_mixture, best_strength, feature_names, history = optimization_results
+            
+            f.write("\nOptimization Results\n")
+            f.write(f"Predicted Max Compressive Strength: {best_strength:.4f} MPa\n")
+            f.write("Optimal Mixture Proportions:\n")
+            for name, value in zip(feature_names, best_mixture):
+                f.write(f" - {name}: {value:.4f}\n")
+            
+            # call the plotter if history exists
+            if history:
+                plot_optimization_history(history, experiment_dir)
     
     print(f"\nExperiment info saved to: {experiment_file}")
     return experiment_dir

@@ -8,13 +8,14 @@ import traceback
 
 from utils.data_loader import load_and_validate_csv
 from utils.experiment_logger import save_experiment_info
+from optimization.optimizer import run_optimization
 
 from models.base import MODEL_REGISTRY
 from strategies.base import STRATEGY_REGISTRY
 
 def load_modules(package_name):
     """
-    Dinamically loads all modules in the specified package by joining their names.
+    Dynamically loads all modules in the specified package by joining their names.
     """
     package_dir = os.path.join(os.path.dirname(__file__), package_name)
     # prevents errors if the package does not exist
@@ -34,12 +35,14 @@ def handle_cli_args():
 
     parser = argparse.ArgumentParser(description="Acid Geopolymer Concrete Optimizer")
     
+    # data arguments
     parser.add_argument(
         "--csv_path",
         default="data/best.csv",
         help="Path to the CSV file containing the dataset (default: data/best.csv)"
     )
 
+    # model arguments
     parser.add_argument(
         "--model", "-m",
         required=True, 
@@ -53,6 +56,7 @@ def handle_cli_args():
         help="Seed for ML model (if not provided, a random seed will be generated)"
     )
 
+    # strategy arguments
     parser.add_argument(
         "--strategy", "-s",
         required=True, 
@@ -80,8 +84,27 @@ def handle_cli_args():
         help="Number of folds for K-Fold cross-validation."
     )
 
+    # optimization arguments
+    parser.add_argument(
+        "--optimize",
+        action='store_true',
+        help="Enable NSGA-II optimization"
+    )
+    parser.add_argument(
+        "--pop_size",
+        type=int,
+        default=10,
+        help="Population Size"
+    )
+    parser.add_argument(
+        "--n_gen",
+        type=int,
+        default=150,
+        help="Number of Generations"
+    )
+
     args = parser.parse_args()
-    
+
 
     # if test_size is provided, strategy must be 'train-split'
     if args.test_size is not None and args.strategy != 'train-split':
@@ -103,13 +126,12 @@ def handle_cli_args():
     return args
 
 def main():
-    # load all modules
+    # load modules
     load_modules('models')
     load_modules('strategies')
 
     # get arguments
     args = handle_cli_args()
-    
 
     # main flow
     try:
@@ -148,6 +170,28 @@ def main():
         for metric, value in model_evaluation.items():
             print(f" - {metric}: {value}")
 
+        # run optimization
+        optimization_results = None
+        if args.optimize:
+            print("Retraining model for optimization")
+            model_instance.fit(X, y)
+            
+            best_mixture, best_fitness, feat_names, history = run_optimization(
+                model=model_instance,
+                X_train=X,
+                pop_size=args.pop_size,
+                n_gen=args.n_gen,
+                seed=model_seed # maybe another seed arg?
+            )
+            
+            # pack results for logger
+            optimization_results = (best_mixture, best_fitness, feat_names, history)
+            
+            print("\nOptimization Results:")
+            print(f"Predicted Max Strength: {best_fitness:.4f}")
+            print("Mixture:")
+            for n, v in zip(feat_names, best_mixture):
+                print(f"  {n}: {v:.4f}")
 
         # save experiment information
         save_experiment_info(
@@ -157,7 +201,8 @@ def main():
             args.strategy,
             strategy_seed,
             args.test_size if args.strategy == 'train-split' else args.n_splits if args.strategy == 'k-fold' else None,
-            model_evaluation.items()
+            model_evaluation.items(),
+            optimization_results=optimization_results
         )
 
     except Exception as e:
