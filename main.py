@@ -12,6 +12,7 @@ from optimization.optimizer import run_optimization
 
 from models.base import MODEL_REGISTRY
 from strategies.base import STRATEGY_REGISTRY
+from objectives.base import OBJECTIVE_REGISTRY
 
 def load_modules(package_name):
     """
@@ -91,6 +92,13 @@ def handle_cli_args():
         help="Enable NSGA-II optimization"
     )
     parser.add_argument(
+        "--objectives", "-o",
+        nargs='+',
+        choices=list(OBJECTIVE_REGISTRY.keys()),
+        default=[],
+        help="Additional objectives to optimize (strength is always included). Options: co2, cost"
+    )
+    parser.add_argument(
         "--pop_size",
         type=int,
         default=10,
@@ -129,6 +137,7 @@ def main():
     # load modules
     load_modules('models')
     load_modules('strategies')
+    load_modules('objectives')
 
     # get arguments
     args = handle_cli_args()
@@ -176,22 +185,40 @@ def main():
             print("Retraining model for optimization")
             model_instance.fit(X, y)
             
-            best_mixture, best_fitness, feat_names, history = run_optimization(
+            # Initialize objective instances
+            objective_instances = [OBJECTIVE_REGISTRY[obj_name]() for obj_name in args.objectives]
+            
+            best_solutions, best_fitness, feat_names, history = run_optimization(
                 model=model_instance,
                 X_train=X,
                 pop_size=args.pop_size,
                 n_gen=args.n_gen,
-                seed=model_seed # maybe another seed arg?
+                seed=model_seed,
+                objectives=objective_instances
             )
             
             # pack results for logger
-            optimization_results = (best_mixture, best_fitness, feat_names, history)
+            optimization_results = (best_solutions, best_fitness, feat_names, history, objective_instances)
             
             print("\nOptimization Results:")
-            print(f"Predicted Max Strength: {best_fitness:.4f}")
-            print("Mixture:")
-            for n, v in zip(feat_names, best_mixture):
-                print(f"  {n}: {v:.4f}")
+            print(f"Found {len(best_solutions)} Pareto optimal solution(s)")
+            
+            # Display up to 5 best solutions
+            display_count = min(5, len(best_solutions))
+            for i in range(display_count):
+                print(f"\nSolution {i+1}:")
+                print(f"  Predicted Strength: {best_fitness[i, 0]:.4f} MPa")
+                
+                # Display other objectives if present
+                for j, obj in enumerate(objective_instances):
+                    print(f"  {obj.get_display_name()}: {best_fitness[i, j+1]:.4f}")
+                
+                print("  Mixture:")
+                for n, v in zip(feat_names, best_solutions[i]):
+                    print(f"    {n}: {v:.4f}")
+            
+            if len(best_solutions) > display_count:
+                print(f"\n... and {len(best_solutions) - display_count} more solutions")
 
         # save experiment information
         save_experiment_info(

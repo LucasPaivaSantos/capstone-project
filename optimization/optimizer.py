@@ -9,37 +9,85 @@ from pymoo.optimize import minimize
 from pymoo.termination import get_termination
 
 class GeopolymerProblem(ElementwiseProblem):
-    def __init__(self, model, feature_names, xl, xu):
+    def __init__(self, model, feature_names, xl, xu, objectives):
+        """
+        Initialize the multi-objective problem.
+        
+        Args:
+            model: Trained ML model for strength prediction
+            feature_names: List of feature names
+            xl: Lower bounds for variables
+            xu: Upper bounds for variables
+            objectives: List of objective instances (CO2, Cost, etc.)
+        """
+        # Number of objectives = 1 (strength) + additional objectives
+        n_objectives = 1 + len(objectives)
+        
         super().__init__(n_var=len(feature_names), 
-                         n_obj=1, 
+                         n_obj=n_objectives, 
                          n_ieq_constr=0, 
                          xl=xl, 
                          xu=xu)
         self.model = model
         self.feature_names = feature_names
+        self.objectives = objectives
 
     def _evaluate(self, x, out, *args, **kwargs):
+        """
+        Evaluate all objectives for a given solution.
+        
+        Args:
+            x: Decision variables (mixture proportions)
+            out: Output dictionary
+        """
+        # Objective 1: Maximize compressive strength (minimize negative strength)
         input_data = pd.DataFrame([x], columns=self.feature_names)
         prediction = self.model.predict(input_data)[0]
-        # minimize negative strength to maximize strength
-        out["F"] = -prediction
+        
+        # Initialize objectives list
+        obj_values = [-prediction]  # Negative for maximization
+        
+        # Calculate additional objectives
+        for objective in self.objectives:
+            obj_value = objective.calculate(x, self.feature_names)
+            # All objectives are minimization in NSGA-II
+            obj_values.append(obj_value)
+        
+        out["F"] = obj_values
 
-def run_optimization(model, X_train, pop_size=100, n_gen=50, seed=1):
+def run_optimization(model, X_train, pop_size=100, n_gen=50, seed=1, objectives=None):
     """
-    Sets up and runs the NSGA-II optimization.
-    Returns: best_solution, best_fitness, feature_names, history
+    Sets up and runs the NSGA-II multi-objective optimization.
+    
+    Args:
+        model: Trained ML model
+        X_train: Training data (DataFrame)
+        pop_size: Population size
+        n_gen: Number of generations
+        seed: Random seed
+        objectives: List of objective instances to optimize
+    
+    Returns: 
+        best_solutions: Array of Pareto optimal solutions
+        best_fitness: Array of fitness values for Pareto solutions
+        feature_names: List of feature names
+        history: List of hypervolume or generation metrics
     """
+    if objectives is None:
+        objectives = []
     
     xl = X_train.min().values
     xu = X_train.max().values
     feature_names = X_train.columns.tolist()
 
     print(f"\nOptimization Configuration")
+    print(f"Objectives: Maximize Strength" + 
+          (f" + {', '.join([obj.get_display_name() for obj in objectives])}" if objectives else ""))
     print(f"Search Space Bounds:")
     for name, low, high in zip(feature_names, xl, xu):
         print(f" - {name}: [{low:.2f}, {high:.2f}]")
 
-    problem = GeopolymerProblem(model, feature_names, xl, xu)
+    problem = GeopolymerProblem(model, feature_names, xl, xu, objectives)
 
     algorithm = NSGA2(
         pop_size=pop_size,
@@ -54,7 +102,6 @@ def run_optimization(model, X_train, pop_size=100, n_gen=50, seed=1):
 
     print(f"\nRunning NSGA-II for {n_gen} generations with pop_size={pop_size}")
     
-    # save_history to track evolution
     result = minimize(problem,
                    algorithm,
                    termination,
@@ -62,26 +109,25 @@ def run_optimization(model, X_train, pop_size=100, n_gen=50, seed=1):
                    save_history=True, 
                    verbose=True)
 
-    # TODO: Im not sure about this part
-    # extract the best solution and its fitness
-    if result.X.ndim == 2:
-        idx = np.argmin(result.F.flatten())
-        best_solution = result.X[idx]
-        best_fitness_val = -result.F.flatten()[idx]
+    # Extract Pareto front solutions
+    if result.X.ndim == 1:
+        # Single solution
+        best_solutions = result.X.reshape(1, -1)
+        best_fitness = result.F.reshape(1, -1)
     else:
-        best_solution = result.X
-        best_fitness_val = -result.F[0] if result.F.size > 0 else -result.F
-
-    if hasattr(best_fitness_val, "item"):
-        best_fitness_val = best_fitness_val.item()
-    else:
-        best_fitness_val = float(best_fitness_val)
-
-    # extract the best fitness from each generation
-    history_fitness = []
+        # Multiple solutions (Pareto front)
+        best_solutions = result.X
+        best_fitness = result.F
+    
+    # Convert first objective back to positive (strength)
+    best_fitness[:, 0] = -best_fitness[:, 0]
+    
+    # Extract history - track hypervolume or best strength over generations
+    history_metrics = []
     if result.history:
         for gen_algo in result.history:
-            best_of_gen = -gen_algo.opt[0].F[0]
-            history_fitness.append(float(best_of_gen))
+            # Track the best strength in each generation
+            best_strength = -np.min(gen_algo.opt.get("F")[:, 0])
+            history_metrics.append(float(best_strength))
 
-    return best_solution, best_fitness_val, feature_names, history_fitness
+    return best_solutions, best_fitness, feature_names, history_metrics
